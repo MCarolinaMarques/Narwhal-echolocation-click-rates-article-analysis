@@ -60,7 +60,7 @@ sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
 
 # Data subset and treatment for each whale
 
-We subset the data in order check the CV for each whale
+We subset the data in order check the CV for each whale.
 
 ## Freya
 
