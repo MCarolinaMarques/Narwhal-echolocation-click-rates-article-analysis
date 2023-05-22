@@ -278,7 +278,7 @@ summary(gamwhales1)
 AIC(gamwhales1)
 ```
 
-### Predicting influence of the different expl. variables
+### Predicting influence of the different variables
 
 ```{r}
 dd1<-sampledata%>%
