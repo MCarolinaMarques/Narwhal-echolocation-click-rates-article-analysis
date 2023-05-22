@@ -1855,11 +1855,11 @@ days.</p>
 <div id="total-time-of-recording-after-the-regular-echolocation-clicks-were-resumed" class="section level1" number="7">
 <h1><span class="header-section-number">7</span> Total time of recording
 after the regular echolocation clicks were resumed</h1>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>datasec_tot<span class="ot">&lt;-</span>originaldata<span class="sc">%&gt;%</span></span>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>datasec_tot_r<span class="ot">&lt;-</span>originaldata<span class="sc">%&gt;%</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(whale)<span class="sc">%&gt;%</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">time=</span><span class="fu">n</span>()<span class="sc">/</span>(<span class="dv">60</span><span class="sc">*</span><span class="dv">60</span><span class="sc">*</span><span class="dv">24</span>))</span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(datasec_tot)</span></code></pre></div>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(datasec_tot_r)</span></code></pre></div>
 <pre><code>##    whale       time
 ## 1  Freya 1.31008102
 ## 2  Thora 3.83329861
@@ -1897,7 +1897,9 @@ spent clicking</h1>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">tot=</span><span class="fu">sum</span>(dur),<span class="at">value=</span><span class="fu">ifelse</span>(click_status<span class="sc">==</span><span class="st">&quot;Clicking&quot;</span>,dur,<span class="dv">0</span>), <span class="at">clickings=</span><span class="fu">sum</span>(value),<span class="at">prop=</span>clickings<span class="sc">/</span>tot)</span></code></pre></div>
 <pre><code>## `summarise()` has grouped output by &#39;whale&#39;. You can override using the
 ## `.groups` argument.</code></pre>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">whale=</span><span class="fu">unique</span>(prop_click_data1<span class="sc">$</span>whale),<span class="at">prop=</span><span class="fu">unique</span>(prop_click_data1<span class="sc">$</span>prop))</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>prop_click_data11<span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">whale=</span><span class="fu">unique</span>(prop_click_data1<span class="sc">$</span>whale),<span class="at">prop=</span><span class="fu">unique</span>(prop_click_data1<span class="sc">$</span>prop))</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">whale=</span><span class="fu">unique</span>(prop_click_data1<span class="sc">$</span>whale),<span class="at">prop=</span><span class="fu">unique</span>(prop_click_data1<span class="sc">$</span>prop))</span></code></pre></div>
 <pre><code>##    whale      prop
 ## 1  Freya 0.3280031
 ## 2  Thora 0.2763159
@@ -1920,9 +1922,12 @@ spent clicking</h1>
 <div id="number-of-samples-analysed-for-clicks-per-second" class="section level1" number="9">
 <h1><span class="header-section-number">9</span> Number of samples
 analysed for clicks per second</h1>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(sampledata<span class="sc">%&gt;%</span></span>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>sample_n<span class="ot">&lt;-</span><span class="fu">data.frame</span>(sampledata<span class="sc">%&gt;%</span></span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(whale)<span class="sc">%&gt;%</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_samples=</span><span class="fu">n</span>()))</span></code></pre></div>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_samples=</span><span class="fu">n</span>()))</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>sample_n</span></code></pre></div>
 <pre><code>##    whale n_samples
 ## 1  Freya       200
 ## 2  Thora       150
@@ -1932,6 +1937,37 @@ analysed for clicks per second</h1>
 ## 6 Balder       194
 ## 7  Jonas       200
 ## 8  Mutti       150</code></pre>
+</div>
+<div id="table-1" class="section level1" number="10">
+<h1><span class="header-section-number">10</span> Table 1</h1>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>d1<span class="ot">&lt;-</span><span class="fu">data.frame</span>(<span class="st">`</span><span class="at">Narwhal ID</span><span class="st">`</span><span class="ot">=</span>datasec<span class="sc">$</span>whale,<span class="at">tf=</span><span class="fu">round</span>(datasec<span class="sc">$</span>time,<span class="dv">2</span>))<span class="co"># time until the resume of the regular echolocation clicks </span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>d0<span class="ot">&lt;-</span><span class="fu">data.frame</span>(<span class="st">`</span><span class="at">Narwhal ID</span><span class="st">`</span><span class="ot">=</span>datasec_tot<span class="sc">$</span>whale,<span class="at">time=</span><span class="fu">round</span>(datasec_tot<span class="sc">$</span>time,<span class="dv">2</span>))<span class="co"># total time of the recording</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>d2<span class="ot">&lt;-</span><span class="fu">data.frame</span>(<span class="st">`</span><span class="at">Narwhal ID</span><span class="st">`</span><span class="ot">=</span>datasec_tot_r<span class="sc">$</span>whale,<span class="at">ta=</span><span class="fu">round</span>(datasec_tot_r<span class="sc">$</span>time,<span class="dv">2</span>))<span class="co"># total time of the recording after the resume of the regular echolocation clicks </span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>d3<span class="ot">&lt;-</span><span class="fu">data.frame</span>(<span class="st">`</span><span class="at">Narwhal ID</span><span class="st">`</span><span class="ot">=</span>sample_n<span class="sc">$</span>whale,<span class="at">samples=</span>sample_n<span class="sc">$</span>n_samples)<span class="co"># number of samples</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>data_s_y_f<span class="ot">&lt;-</span>originaldata<span class="sc">%&gt;%</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(<span class="at">Narwhal.ID=</span>whale)<span class="sc">%&gt;%</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">sex=</span><span class="fu">unique</span>(sex),<span class="at">year=</span><span class="fu">unique</span>(year),<span class="st">`</span><span class="at">acoustic sample rate (Hz)</span><span class="st">`</span><span class="ot">=</span><span class="fu">unique</span>(frequency))</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>d<span class="ot">&lt;-</span><span class="fu">full_join</span>(d0,d1)</span></code></pre></div>
+<pre><code>## Joining, by = &quot;Narwhal.ID&quot;</code></pre>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>d<span class="ot">&lt;-</span><span class="fu">full_join</span>(d,d2)</span></code></pre></div>
+<pre><code>## Joining, by = &quot;Narwhal.ID&quot;</code></pre>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>d<span class="ot">&lt;-</span><span class="fu">full_join</span>(d,d3)</span></code></pre></div>
+<pre><code>## Joining, by = &quot;Narwhal.ID&quot;</code></pre>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>d<span class="ot">&lt;-</span><span class="fu">full_join</span>(d,data_s_y_f)</span></code></pre></div>
+<pre><code>## Joining, by = &quot;Narwhal.ID&quot;</code></pre>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>d[,<span class="fu">c</span>(<span class="st">&quot;Narwhal.ID&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;year&quot;</span>, <span class="st">&quot;time&quot;</span>, <span class="st">&quot;tf&quot;</span>, <span class="st">&quot;ta&quot;</span>, <span class="st">&quot;samples&quot;</span>, <span class="st">&quot;acoustic sample rate (Hz)&quot;</span>)]</span></code></pre></div>
+<pre><code>##   Narwhal.ID    sex year time   tf   ta samples acoustic sample rate (Hz)
+## 1      Freya Female 2013 2.84 1.53 1.31     200             25811 /154868
+## 2      Thora Female 2014 4.23 0.39 3.83     150             25811 /154868
+## 3       Mára Female 2014 0.42 0.37 0.04      10             25811 /154868
+## 4      Frida Female 2015 3.44 1.12 2.32     149                     25811
+## 5     Eistla Female 2016 4.21 0.75 3.46     150             25811 /154868
+## 6     Balder   Male 2016 8.71 2.61 4.35     194                     25811
+## 7      Jonas   Male 2019 9.34 0.28 6.10     200                     25811
+## 8      Mutti Female 2019 4.23 1.21 3.03     150                     25811</code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1 class="unnumbered">References</h1>

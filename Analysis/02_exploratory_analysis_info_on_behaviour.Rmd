@@ -194,29 +194,29 @@ The cv recorded time was `r round((sd(datasec_tot$time)/mean(datasec_tot$time)),
 
 
 ```{r}
-datasec_tot<-originaldata%>%
+datasec_tot_r<-originaldata%>%
   group_by(whale)%>%
   summarise(time=n()/(60*60*24))
 
-data.frame(datasec_tot)
+data.frame(datasec_tot_r)
 ```
 
 
 
-The total time of recording after the regular echolocation clicks were resumed for all the whales together was `r round(sum(datasec_tot$time),3)` days.
+The total time of recording after the regular echolocation clicks were resumed for all the whales together was `r round(sum(datasec_tot_r$time),3)` days.
 
-The minimum time of recording after the regular echolocation clicks were resumed was `r round(min(datasec_tot$time),3)` days.
+The minimum time of recording after the regular echolocation clicks were resumed was `r round(min(datasec_tot_r$time),3)` days.
 
-The maximum time of recording after the regular echolocation clicks were resumed was `r round(max(datasec_tot$time),3)` days.
+The maximum time of recording after the regular echolocation clicks were resumed was `r round(max(datasec_tot_r$time),3)` days.
 
-The sd time of recording after the regular echolocation clicks were resumed was `r round(sd(datasec_tot$time),3)` days.
+The sd time of recording after the regular echolocation clicks were resumed was `r round(sd(datasec_tot_r$time),3)` days.
 
-The mean time of recording after the regular echolocation clicks were resumed was `r round(mean(datasec_tot$time),3)` days.
+The mean time of recording after the regular echolocation clicks were resumed was `r round(mean(datasec_tot_r$time),3)` days.
 
-The median time of recording after the regular echolocation clicks were resumed was `r round(median(datasec_tot$time),3)` days.
+The median time of recording after the regular echolocation clicks were resumed was `r round(median(datasec_tot_r$time),3)` days.
 
 
-The cv time of recording after the regular echolocation clicks were resumed was `r round((sd(datasec_tot$time)/mean(datasec_tot$time)),3)` days.
+The cv time of recording after the regular echolocation clicks were resumed was `r round((sd(datasec_tot_r$time)/mean(datasec_tot_r$time)),3)` days.
 
 
 # Proportion of time spent clicking
@@ -226,9 +226,12 @@ prop_click_data<-originaldata%>%
   group_by(whale,click_status)%>%
   summarise(dur=n())
 
+
 prop_click_data1<-prop_click_data%>%
   group_by(whale)%>%
   summarise(tot=sum(dur),value=ifelse(click_status=="Clicking",dur,0), clickings=sum(value),prop=clickings/tot)
+
+prop_click_data11<- data.frame(whale=unique(prop_click_data1$whale),prop=unique(prop_click_data1$prop))
 
 data.frame(whale=unique(prop_click_data1$whale),prop=unique(prop_click_data1$prop))
 ```
@@ -252,12 +255,34 @@ The cv proportion of time spent in a clicking period  was `r round(sd(prop_click
 # Number of samples analysed for clicks per second
 
 ```{r}
-data.frame(sampledata%>%
+sample_n<-data.frame(sampledata%>%
   group_by(whale)%>%
   summarise(n_samples=n()))
 
+
+sample_n
 ```
 
+# Table 1
+
+```{r}
+d1<-data.frame(`Narwhal ID`=datasec$whale,tf=round(datasec$time,2))# time until the resume of the regular echolocation clicks 
+d0<-data.frame(`Narwhal ID`=datasec_tot$whale,time=round(datasec_tot$time,2))# total time of the recording
+d2<-data.frame(`Narwhal ID`=datasec_tot_r$whale,ta=round(datasec_tot_r$time,2))# total time of the recording after the resume of the regular echolocation clicks 
+d3<-data.frame(`Narwhal ID`=sample_n$whale,samples=sample_n$n_samples)# number of samples
+
+data_s_y_f<-originaldata%>%
+  group_by(Narwhal.ID=whale)%>%
+  summarise(sex=unique(sex),year=unique(year),`acoustic sample rate (Hz)`=unique(frequency))
+
+
+d<-full_join(d0,d1)
+d<-full_join(d,d2)
+d<-full_join(d,d3)
+d<-full_join(d,data_s_y_f)
+
+d[,c("Narwhal.ID", "sex", "year", "time", "tf", "ta", "samples", "acoustic sample rate (Hz)")]
+```
 
 # References
 
