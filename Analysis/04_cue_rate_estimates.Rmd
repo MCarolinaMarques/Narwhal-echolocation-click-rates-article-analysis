@@ -1,0 +1,196 @@
+---
+title: "Cue rates obtained with the sampled data"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    force_captions: yes
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    df_print: paged
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  word_document:
+    toc: yes
+    toc_depth: '3'
+csl: mee.csl
+subtitle: 
+bibliography: references.bib
+---
+```{r setup,include=FALSE}
+options(encoding = 'UTF-8')
+knitr::opts_chunk$set(echo = TRUE) 
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(dplyr) ##necessary to the function filter 
+library(mgcv)
+library(MASS)
+library(nlme)
+library(RVAideMemoire)
+library(car)
+library(hrbrthemes) 
+library(dplyr)
+library(tidyverse)
+library(ggrepel)
+library(Hmisc)
+#variance for a weighted mean
+var.wtd.mean.cochran <- function(x,w)
+#
+# Computes the variance of a weighted mean following Cochran 1977 definition
+  # https://stat.ethz.ch/pipermail/r-help/2007-June/133192.html
+#
+{
+n = length(w)
+xWbar = wtd.mean(x,w)
+wbar = mean(w)
+out = n/((n-1)*sum(w)^2)*(sum((w*x-wbar*xWbar)^2)-2*xWbar*sum((w-wbar)*(
+w*x-wbar*xWbar))+xWbar^2*sum((w-wbar)^2))
+return(out)
+}
+
+
+theme_set(theme_bw())
+```
+
+
+# Reading data 
+
+
+```{r}
+#read data obtained in "01_data_processing.rmd":
+load("originald_data_processed.rda")
+load("processed_data.rda")
+sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
+```
+
+
+## obtaining durations used 4 cue rates
+
+```{r}
+whale<-unique(originaldata$whale)
+
+originaldata$click=ifelse(originaldata$click_status=="Clicking",1,0)
+
+
+tagdur<-originaldata%>%
+  dplyr::group_by(whale)%>%
+  dplyr::summarise(sumone=sum(click,na.rm=T),ll=n())
+
+sampledata<-full_join(sampledata,tagdur)
+
+```
+
+
+# Cue rate 
+
+## Standard average and CI
+
+
+```{r}
+sampledata11<-sampledata%>%
+  group_by(whale)%>%
+  summarise(meany=mean(clicks,na.rm=T),sumone=unique(sumone),ll=unique(ll),mean=(meany*sumone)/ll,sd=sd(clicks,na.rm=T),cv=sd/meany,
+              lower = meany-qt(0.975,df=n()-1)*sd/sqrt(n()),
+              upper = meany+qt(0.975,df=n()-1)*sd/sqrt(n()))
+# ll is the full length of the tag, sumone is the length of the time spent clicking
+
+
+sampledata11
+
+durdata<-sampledata11[,c("whale","ll")]
+```
+
+### Results
+
+```{r}
+n <- as.numeric(nrow(sampledata11))
+xbar <- mean(sampledata11$mean,na.rm=T) 
+s <- sd(sampledata11$mean,na.rm=T)
+
+#calculate margin of error
+margin <- qt(0.975,df=n-1)*s/sqrt(n)
+
+#calculate lower and upper bounds of confidence interval
+low <- xbar - margin
+high <- xbar + margin
+
+
+cv0<-s/xbar
+  
+data0<-data.frame(mean=xbar,low=low,high=high,cv=cv0,sd=s,id="Standard Average")
+#var(df5$mean)
+```
+
+
+The standard average for the cue rate is `r round(xbar,3) ` and the corresponding 95% CI is [`r round(low,3)` ,`r round(high,3)`]. The cv obtained is `r round(cv0,3)` and the sd is `r round(s,3)`.
+
+
+### Weighted Results
+
+
+
+```{r}
+wxbar<-  weighted.mean(sampledata11$mean,sampledata11$ll,na.rm=T) 
+ws <- sqrt(var.wtd.mean.cochran(sampledata11$mean,sampledata11$ll))
+
+#calculate margin of error
+wmargin <- qt(0.975,df=n-1)*ws
+
+#calculate lower and upper bounds of confidence interval
+wlow <- wxbar - wmargin
+whigh <- wxbar + wmargin
+
+wcv<-ws/wxbar
+#var(df5$mean)
+
+wdata0<-data.frame(mean=wxbar,low=wlow,high=whigh,cv=wcv,sd=ws,id="Weighted Average")
+```
+
+The weighted average for the cue rate is `r round(wxbar,3) ` and the corresponding 95% CI is [`r round(wlow,3)` ,`r round(whigh,3)`]. The cv obtained is `r round(wcv,3)` and the weighted sd is `r round(ws,3)`.
+
+
+
+## Joining results from cue rates
+
+```{r}
+
+data<-full_join(wdata0,data0)
+```
+
+```{r}
+data.frame(data[,c("id","mean","sd","cv","low","high")])
+```
+
+
+```{r}
+data.frame(data[data$id%in%c("Weighted Average","Standard Average"),c("id","mean","sd","cv","low","high")])
+```
+
+
+## Plotting results
+
+
+```{r}
+ggplot(data, aes(x= id, y= mean))+
+  geom_point()+ 
+  geom_pointrange(aes(ymin=low,ymax=high))+ylab("Mean Cue Rate")+xlab("")+
+  theme(axis.text.x=element_text(angle=30, hjust=1))
+
+
+```
+
+## Saving the cue rate results
+
+```{r}
+save(list=c("data"),file="cue_rates_obtained.rda")
+```
+

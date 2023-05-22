@@ -1,0 +1,898 @@
+---
+title: "Checking the cv for the number of clicks per second"
+author: "Carolina S. Marques"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    force_captions: yes
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  word_document:
+    toc: yes
+    toc_depth: '3'
+csl: mee.csl
+subtitle: 
+bibliography: references.bib
+---
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(dplyr) ##necessary to the function filter 
+library(mgcv)
+library(MASS)
+library(nlme)
+library(RVAideMemoire)
+library(car)
+library(hrbrthemes) 
+library(dplyr)
+library(tidyverse)
+```
+
+# Introduction 
+
+In this document we analyse the coefficient of variation between the samples analysed for used to obtain the clicks per second for each narwhal.
+
+
+
+# Reading data 
+
+```{r}
+#read data obtained in "01_data_processing.rmd":
+load("processed_data.rda")
+sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
+```
+
+
+
+# Data subset and treatment for each whale
+
+We subset the data in order check the CV for each whale
+
+## Freya
+
+There were two sampling intervals for Freya (1 and 2) in order to check if there are differences in the mean of the clicks and also check if the coefficient of variation is high. We will compare both: separated results and overall results.
+
+
+```{r chunk1}
+#Freya
+Freya0 <- originaldata[originaldata$whale=="Freya",]  #Original data
+
+Freya1 <- subset(sampledata[1:100, ], whale=="Freya") #100 samples for Freya1
+Freya2 <- subset(sampledata[101:200, ], whale=="Freya") #100 samples for Freya2
+
+
+Freya3<-subset(sampledata, whale=="Freya")
+
+```
+
+## Balder
+
+```{r}
+#Balder
+Balder0 <-originaldata[originaldata$whale=="Balder",] #Original data
+
+Balder1 <- subset(sampledata, whale=="Balder") #194 samples for Balder 
+
+
+```
+
+
+## Eistla
+
+```{r}
+
+#Eistla
+Eistla0 <-originaldata[originaldata$whale=="Eistla",] #Original data
+
+Eistla1 <- subset(sampledata, whale=="Eistla") #150 samples for Eistla
+
+```
+
+## Mutti
+
+```{r}
+
+#Mutti
+Mutti0 <-originaldata[originaldata$whale=="Mutti",] #Original data
+
+Mutti1 <- subset(sampledata, whale=="Mutti") #150 samples for Mutti
+
+```
+
+
+## Thora
+
+```{r}
+
+#Thora
+Thora0 <-originaldata[originaldata$whale=="Thora",] #Original data
+
+Thora1 <- subset(sampledata, whale=="Thora") #150 samples for Thora
+
+```
+
+## Frida
+
+```{r}
+
+#Frida
+Frida0 <-originaldata[originaldata$whale=="Frida",] #Original data
+
+Frida1 <- subset(sampledata, whale=="Frida") #149 samples for Frida
+
+```
+
+
+
+## Jonas
+
+Jonas has sounds that still need to be processed, which mean we only have clicking information until the 09/05/2019 06:51:10
+
+```{r}
+Jonas00 <-originaldata[originaldata$whale=="Jonas",] #Original Jonas data
+
+Jonas00$row<- (1:nrow(Jonas00))
+
+Jonas0 <- Jonas00[1:551015,] #first part of Jonas data processed for sounds 
+
+JonasOs <- Jonas00[551016:807030,] #second part of Jonas data not processed for sounds 
+
+Jonas1 <-  subset(sampledata, whale=="Jonas") #200 samples for Jonas
+```
+
+
+## Mára
+
+```{r chunk4.1}
+#Mara
+Mara0 <-originaldata[originaldata$whale=="Mára",] #Original data 
+
+Mara1 <- subset(sampledata, whale=="Mára") #10 samples for Mara
+
+```
+
+
+# Seeing how increasing the sample size affects the estimates on the number of clicks per second
+
+
+The next plots show for each sample size, a sub-sample of k samples out of n that were selected, between sample sizes of xmin and xmax, sd, and the average was computed. To have a reliable mean of the number of clicks per second, it will be evaluated in the plots below how the increasing sample sizes change the estimate of the mean obtained and how the variances of the mean and their coefficients of variation change with increasing sample sizes.
+
+## Freya
+
+
+### 1st sampling from Freya
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Freya1 (first sampling made for Freya data) data (with 100 samples), and the value obtained was `r mean(Freya1$clicks)`. 
+
+
+```{r}
+nobsF1 <- length(Freya1$clicks)
+#Different sample sizes
+limitF1 <- 5 
+nevalF1 <- limitF1:(nobsF1)
+#Number of repetitions for each sample size
+nrepsF1<-1000
+#Object to store the averages 
+resultadosF1<-matrix(NA,ncol=length(nevalF1),nrow=nrepsF1)
+x<-list()
+#For each sample size
+
+resultadosF1<-matrix(NA,ncol=length(nevalF1),nrow=nrepsF1)
+
+#For each sample size
+for(i in 1:length(nevalF1)){
+  #For each repetition
+  for(j in 1:nrepsF1){
+    amostraF1<-sample(Freya1$clicks,size=nevalF1[i],replace=TRUE)
+    resultadosF1[j,i]<-mean(amostraF1)
+  }
+}
+
+
+a<-data.frame(resultadosF1)
+colnames(a)<-paste("size",nevalF1,sep="_")
+
+a$rep=1:nrow(a)
+
+
+cvdata<-  a %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdata1<-cvdata%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdata1<-cvdata1[!duplicated(cvdata1),]
+
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+
+ggplot(cvdata1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+  
+cvdata$numb=as.numeric(substr(cvdata$id,6,1000))
+
+```
+
+
+
+
+### 2nd sampling from Freya
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Freya2 (second sampling made for Freya data) data (with 100 samples), and the value obtained was `r mean(Freya2$clicks)`. 
+
+
+```{r}
+nobsF2 <- length(Freya2$clicks)
+#Different sample sizes
+limitF2 <- 5 
+nevalF2 <- limitF2:(nobsF2)
+#Number of repetitions for each sample size
+nrepsF2<-1000
+#Object to store the averages 
+resultadosF2<-matrix(NA,ncol=length(nevalF2),nrow=nrepsF2)
+x<-list()
+#For each sample size
+
+resultadosF2<-matrix(NA,ncol=length(nevalF2),nrow=nrepsF2)
+
+#For each sample size
+for(i in 1:length(nevalF2)){
+  #For each repetition
+  for(j in 1:nrepsF2){
+    amostraF2<-sample(Freya2$clicks,size=nevalF2[i],replace=TRUE)
+    resultadosF2[j,i]<-mean(amostraF2)
+  }
+}
+
+
+a2<-data.frame(resultadosF2)
+colnames(a2)<-paste("size",nevalF2,sep="_")
+
+a2$rep=1:nrow(a2)
+
+
+cvdata22<-  a2 %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdata2<-cvdata22%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdata2<-cvdata2[!duplicated(cvdata2),]
+
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+ggplot(cvdata2,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+  
+cvdata22$numb=as.numeric(substr(cvdata22$id,6,1000))
+
+```
+
+
+
+### For the two samples together
+
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Freya1 and Freya2 data (with a total of 200 samples), and the value obtained was `r mean(Freya3$clicks)`. 
+
+```{r}
+
+nobsF3 <- length(Freya3$clicks)
+#Different sample sizes
+limitF3 <- 5 
+nevalF3 <- limitF3:(nobsF3)
+#Number of repetitions for each sample size
+nrepsF3<-100
+#Object to store the averages 
+resultadosF3<-matrix(NA,ncol=length(nevalF3),nrow=nrepsF3)
+x<-list()
+#For each sample size
+
+resultadosF3<-matrix(NA,ncol=length(nevalF3),nrow=nrepsF3)
+
+#For each sample size
+for(i in 1:length(nevalF3)){
+  #For each repetition
+  for(j in 1:nrepsF3){
+    amostraF3<-sample(Freya3$clicks,size=nevalF3[i],replace=TRUE)
+    resultadosF3[j,i]<-mean(amostraF3)
+  }
+}
+
+
+a3<-data.frame(resultadosF3)
+colnames(a3)<-paste("size",nevalF3,sep="_")
+#a$sd<-apply(resultadosF3,3,sd)
+#a$mean<-apply(resultadosF3,3,mean)
+#a$cv<-a$sd/a$mean
+
+a3$rep=1:nrow(a3)
+
+
+cvdata33<-  a3 %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+cvdata3<-cvdata33%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdata3<-cvdata3[!duplicated(cvdata3),]
+
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+ggplot(cvdata3,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+  
+
+cvdata33$numb=as.numeric(substr(cvdata33$id,6,1000))
+
+```
+
+
+
+### Seeing if the variance in the average explains the differences between the means obtained for Freya1 and Freya2
+
+In the next plot, it can be observed a blue line representing the mean obtained for Freya1 (first sampling made for Freya data), and a red line representing the mean obtained for Freya2 (second sampling made for Freya data). The color points are the average values obtained by a sub-sample of k samples out of 100 that were selected, between sample sizes of xmin and xmax. The blue and red points are the average values obtained for Freya1 and Freya2 sub-samples, respectively. The grey points are the average values for Freya1 and Freya2 sub-samples that were overlapped. 
+
+```{r}
+Freya1$samp<-"1st sample"
+Freya2$samp<-"2nd sample"
+Freya3$samp<-"Both samples"
+Freya_allsamp1<-rbind(Freya1,Freya2,Freya3)
+
+
+cvdata1$samp<-"1st sample"
+cvdata2$samp<-"2nd sample"
+cvdata3$samp<-"Both samples"
+
+cvdata$samp<-"1st sample"
+cvdata22$samp<-"2nd sample"
+cvdata33$samp<-"Both samples"
+
+Freya_allsamp<-rbind(cvdata,cvdata22,cvdata33)
+
+Freya_allsamp1<-Freya_allsamp1%>%
+  group_by(samp)%>%
+  mutate(mean=mean(clicks))
+
+```
+
+
+```{r}
+ggplot(Freya_allsamp,aes(x=numb,y=value,color=samp))+
+  geom_point(size=3,alpha=0.2,shape=19)+
+  theme_bw()+xlim(0,100)+
+  geom_hline(data=Freya_allsamp1, aes(yintercept=mean, color=samp,group=samp)) +ylab("Mean value for the number of clicks")+xlab("Sample size")+labs(color="Samples included")
+```
+
+It can be concluded that the means obtained for Freya1 and Freya2 data (represented by color lines) are within the interval of the average of each sampling from the other data. Hence, the variance in the average explains the differences between the means obtained for Freya1 and Freya2. 
+
+
+## Balder
+
+
+### Seeing how increasing the sample size changes the estimates
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Balder data (with 200 samples), and the value obtained was `r mean(Balder1$clicks)`.
+
+The next plots show for each sample size, a sub-sample of k samples out of 200 that were selected, between sample sizes of xmin and xmax, and the average was computed.
+
+```{r}
+nobsB <- length(Balder1$clicks)
+#Different sample sizes
+limitB <- 5 
+nevalB <- limitB:(nobsB-limitB)
+#Number of repetitions for each sample size
+nrepsB<-1000
+#Object to store the averages 
+resultadosB<-matrix(NA,ncol=length(nevalB),nrow=nrepsB)
+
+#For each sample size
+for(i in 1:length(nevalB)){
+  #For each repetition
+  for(j in 1:nrepsB){
+    amostraB<-sample(Balder1$clicks,size=nevalB[i],replace=TRUE)
+    resultadosB[j,i]<-mean(amostraB)
+  }
+}
+
+
+
+
+b<-data.frame(resultadosB)
+colnames(b)<-paste("size",nevalB,sep="_")
+
+b$rep=1:nrow(b)
+
+
+cvdatab<-  b %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdatab1<-cvdatab%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdatab1<-cvdatab1[!duplicated(cvdatab1),]
+
+```
+
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+
+```{r}
+ggplot(cvdatab1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+  
+```
+
+
+
+## Eistla 
+
+### Seeing how increasing the sample size changes the estimates
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Eistla data (with 150 samples), and the value obtained was `r mean(Balder1$clicks)`. 
+
+The next plots show for each sample size, a sub-sample of k samples out of 150 that were selected, between sample sizes of xmin and xmax, and the average was computed.
+
+
+```{r}
+nobsE <- length(Eistla1$clicks)
+#Different sample sizes
+limitE <- 5 
+nevalE <- limitE:(nobsE-limitE)
+#Number of repetitions for each sample size
+nrepsE<-1000
+#Object to store the averages 
+resultadosE<-matrix(NA,ncol=length(nevalE),nrow=nrepsE)
+
+#For each sample size
+for(i in 1:length(nevalE)){
+  #For each repetition
+  for(j in 1:nrepsE){
+    amostraE<-sample(Eistla1$clicks,size=nevalE[i],replace=TRUE)
+    resultadosE[j,i]<-mean(amostraE)
+  }
+}
+
+
+
+e<-data.frame(resultadosE)
+colnames(e)<-paste("size",nevalE,sep="_")
+
+e$rep=1:nrow(a)
+
+
+cvdatae<-  e %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdatae1<-cvdatae%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdatae1<-cvdatae1[!duplicated(cvdatae1),]
+
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+
+ggplot(cvdatae1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+
+```
+
+
+## Mutti
+
+### Seeing how increasing the sample size changes the estimates
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Mutti data (with 150 samples), and the value obtained was `r mean(Mutti1$clicks)`. 
+
+The next plots show for each sample size, a sub-sample of k samples out of 150 that were selected, between sample sizes of xmin and xmax, and the average was computed. 
+
+
+```{r}
+nobsM <- length(Mutti1$clicks)
+#Different sample sizes
+limitM <- 5 
+nevalM <- limitM:(nobsM-limitM)
+#Number of repetitions for each sample size
+nrepsM<-1000
+#Object to store the averages 
+resultadosM<-matrix(NA,ncol=length(nevalM),nrow=nrepsM)
+
+#For each sample size
+for(i in 1:length(nevalM)){
+  #For each repetition
+  for(j in 1:nrepsM){
+    amostraM<-sample(Mutti1$clicks,size=nevalM[i],replace=TRUE)
+    resultadosM[j,i]<-mean(amostraM)
+  }
+}
+
+
+
+
+m<-data.frame(resultadosM)
+colnames(m)<-paste("size",nevalM,sep="_")
+
+m$rep=1:nrow(m)
+
+
+cvdatam<-  m %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdatam1<-cvdatam%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdatam1<-cvdatam1[!duplicated(cvdatam1),]
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+ggplot(cvdatam1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+```
+
+
+## Thora 
+
+### Seeing how increasing the sample size changes the estimates 
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Thora data (with 150 samples), and the value obtained was `r mean(Thora1$clicks)`. 
+
+
+The next plots show for each sample size, a sub-sample of k samples out of 150 that were selected, between sample sizes of xmin and xmax, and the average was computed.
+
+
+```{r}
+nobsT <- length(Thora1$clicks)
+#Different sample sizes
+limitT <- 5 
+nevalT <- limitT:(nobsT-limitT)
+#Number of repetitions for each sample size
+nrepsT<-1000
+#Object to store the averages 
+resultadosT<-matrix(NA,ncol=length(nevalT),nrow=nrepsT)
+
+#For each sample size
+for(i in 1:length(nevalT)){
+  #For each repetition
+  for(j in 1:nrepsT){
+    amostraT<-sample(Thora1$clicks,size=nevalT[i],replace=TRUE)
+    resultadosT[j,i]<-mean(amostraT)
+  }
+}
+
+
+
+t<-data.frame(resultadosT)
+colnames(t)<-paste("size",nevalT,sep="_")
+
+t$rep=1:nrow(t)
+
+
+cvdatat<-  t %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdatat1<-cvdatat%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdatat1<-cvdatat1[!duplicated(cvdatat1),]
+
+
+  
+```
+
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+
+```{r}
+ggplot(cvdatat1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+```
+
+## Frida
+
+### Seeing how increasing the sample size changes the estimates
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Frida data (with 149 samples), and the value obtained was `r mean(Frida1$clicks)`. 
+
+The next plots show for each sample size, a sub-sample of k samples out of 149 that were selected, between sample sizes of xmin and xmax, and the average was computed.
+
+
+```{r}
+nobsF <- length(Frida1$clicks)
+#Different sample sizes
+limitF <- 5 
+nevalF <- limitF:(nobsF-limitF)
+#Number of repetitions for each sample size
+nrepsF<-1000
+#Object to store the averages 
+resultadosF<-matrix(NA,ncol=length(nevalF),nrow=nrepsF)
+
+#For each sample size
+for(i in 1:length(nevalF)){
+  #For each repetition
+  for(j in 1:nrepsF){
+    amostraF<-sample(Frida1$clicks,size=nevalF[i],replace=TRUE)
+    resultadosF[j,i]<-mean(amostraF)
+  }
+}
+
+
+f<-data.frame(resultadosF)
+colnames(f)<-paste("size",nevalF,sep="_")
+
+f$rep=1:nrow(f)
+
+
+cvdataf<-  f %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdataf1<-cvdataf%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdataf1<-cvdataf1[!duplicated(cvdataf1),]
+
+```
+
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+ggplot(cvdataf1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+
+```
+
+
+## Jonas 
+
+### Seeing how increasing the sample size changes the estimates
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Jonas data (with 200 samples), and the value obtained was `r mean(Jonas1$clicks)`. 
+
+The next plots show for each sample size, a sub-sample of k samples out of 200 that were selected, between sample sizes of xmin and xmax, and the average was computed.
+
+
+```{r}
+nobsJ <- length(Jonas1$clicks)
+#Different sample sizes
+limitJ <- 5 
+nevalJ <- limitJ:(nobsJ-limitJ)
+#Number of repetitions for each sample size
+nrepsJ<-1000
+#Object to store the averages 
+resultadosJ<-matrix(NA,ncol=length(nevalJ),nrow=nrepsJ)
+
+#For each sample size
+for(i in 1:length(nevalJ)){
+  #For each repetition
+  for(j in 1:nrepsJ){
+    amostraJ<-sample(Jonas1$clicks,size=nevalJ[i],replace=TRUE)
+    resultadosJ[j,i]<-mean(amostraJ)
+  }
+}
+
+
+
+j<-data.frame(resultadosJ)
+colnames(j)<-paste("size",nevalJ,sep="_")
+
+j$rep=1:nrow(j)
+
+
+cvdataj<-  j %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdataj1<-cvdataj%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdataj1<-cvdataj1[!duplicated(cvdataj1),]
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+
+ggplot(cvdataj1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+  
+```
+
+## Mára
+
+A power reset on Mara record lead to just 1h of clicking and buzzing recorded (@Blackwell2018), so only 10 samples were selected for Mara data. Because of her small sample size, we should use the following results carefully:
+
+### Seeing how increasing the sample size changes the estimates
+
+The average number of sounds per second for clicks present in the clicking period was calculated for Mara data (with 10 samples), and the value obtained was `r mean(Mara1$clicks)`. 
+
+The next plots show for each sample size, a sub-sample of k samples out of 10 that were selected, between sample sizes of xmin and xmax, and the average was computed.
+
+
+```{r}
+nobsMa <- length(Mara1$clicks)
+#Different sample sizes
+limitMa <- 1
+nevalMa <- limitMa:(nobsMa-limitMa)
+#Number of repetitions for each sample size
+nrepsMa<-1000
+#Object to store the averages 
+resultadosMa<-matrix(NA,ncol=length(nevalMa),nrow=nrepsMa)
+
+#For each sample size
+for(i in 1:length(nevalMa)){
+  #For each repetition
+  for(j in 1:nrepsMa){
+    amostraMa<-sample(Mara1$clicks,size=nevalMa[i],replace=TRUE)
+    resultadosMa[j,i]<-mean(amostraMa)
+  }
+}
+
+
+ma<-data.frame(resultadosMa)
+colnames(ma)<-paste("size",nevalMa,sep="_")
+
+ma$rep=1:nrow(ma)
+
+
+cvdatama<-  ma %>% 
+  pivot_longer(starts_with("size_") ,
+               names_to = "id", 
+               values_to = "value", 
+               values_drop_na = TRUE)
+
+
+cvdatama1<-cvdatama%>%
+  group_by(id)%>%
+  summarise(mean=mean(value),sd=sd(value),cv=sd/mean, numb=as.numeric(substr(id,6,1000)))
+
+cvdatama1<-cvdatama1[!duplicated(cvdatama1),]
+
+```
+
+#### Plot for the mean and sd along the increase of the number of samples
+
+```{r}
+ggplot(cvdatama1,aes(x=numb,y=mean))+
+  geom_point()+
+  theme_bw()+
+  geom_pointrange(aes(ymin=mean-sd,  ymax=mean+sd))+ylab("Mean value for the number of clicks")+xlab("Sample size")
+  
+```
+
+
+
+## Plotting results with all of the narwhals
+
+```{r}
+cvdatama1$whale<-"Mára"
+cvdatat1$whale<-"Thora"
+cvdatab1$whale<-"Balder"
+cvdatae1$whale<-"Eistla"
+cvdataf1$whale<-"Frida"
+cvdataj1$whale<-"Jonas"
+cvdatam1$whale<-"Mutti"
+cvdata3$whale<-"Freya"
+
+ddata<-full_join(cvdatama1,cvdatat1)
+ddata<-full_join(ddata,cvdatab1)
+ddata<-full_join(ddata,cvdatae1)
+ddata<-full_join(ddata,cvdataf1)
+ddata<-full_join(ddata,cvdataj1)
+ddata<-full_join(ddata,cvdatam1)
+ddata<-full_join(ddata,cvdata3)
+
+ddata$whale<-factor(ddata$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))
+
+```
+
+```{r}
+ggplot(data=ddata,aes(x=numb,y=cv,color=whale))+
+  geom_point(alpha=0.6,size=2)+
+  theme_bw()+ylab("CV value for the number of clicks \nin the samples")+xlab("Sample size")+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+Seeing how increasing the sample size changes the estimates for Freya1. 100 samples seem to be enough to have a good estimate of narwhal cue rates and density since the coefficient of variation of the average number of clicks is less than 20% (@Gomez1984).
+
+
+# References

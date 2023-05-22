@@ -1,0 +1,203 @@
+---
+title: "GAM to model the proportion of time spent at a clicking period through depth and by whale"
+author: "Carolina S. Marques"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    force_captions: yes
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  word_document:
+    toc: yes
+    toc_depth: '3'
+csl: mee.csl
+subtitle: 
+bibliography: references.bib
+---
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(dplyr) ##necessary to the function filter 
+library(mgcv)
+library(MASS)
+library(nlme)
+library(RVAideMemoire)
+library(car)
+library(hrbrthemes) 
+library(dplyr)
+library(tidyverse)
+library(Hmisc)
+theme_set(theme_bw())
+options(encoding = 'UTF-8')
+```
+
+# Introduction 
+
+In this document we model the probability of being in a clicking period as a function of depth and whale id.
+
+
+# Reading data 
+
+
+```{r}
+#read data obtained in "01_data_processing.rmd":
+load("processed_data.rda")
+sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
+
+```
+
+
+#  GAM models 
+
+For computational efficiency, the data was sub-sampled considering a systematic sampling with random start, selecting only one out of every 10 samples in the original data. 
+
+```{r}
+originaldata$Clicking1<-ifelse(originaldata$click_status=="Silent",0,1)
+                         
+originaldata1=originaldata[seq(1,nrow(originaldata),by=10),]
+
+```
+
+
+## Model as a function of depth by whale
+
+
+```{r}
+gamwhales<-gam(Clicking1~s(Depth,by=as.factor(whale),k=4),data=originaldata1,family=binomial(link="logit"))
+```
+
+### Summary of the model 
+
+```{r}  
+summary(gamwhales) 
+```
+
+### AIC
+
+```{r}
+AIC(gamwhales)
+```
+
+### Predicting the influence of both varibles in the data
+
+
+```{r}
+
+originaldata11<-data.frame(Depth=originaldata1$Depth,whale=originaldata1$whale)
+
+datat1<-data.frame(pclick=predict(gamwhales,newdata = originaldata11,type="response"),Depth=originaldata11$Depth,whale=originaldata11$whale)#get the prediction
+
+confintervals<-data.frame(confintervals=predict(gamwhales,newdata=(originaldata11),type="response",se.fit=T))#get the confidence intervals
+
+datat1$bigfit<-confintervals$confintervals.fit+confintervals$confintervals.se.fit
+datat1$smallfit<-confintervals$confintervals.fit-confintervals$confintervals.se.fit
+
+datat1$whale<-factor(datat1$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))
+
+```
+
+### Plot of the results from the model / Figure 4
+
+```{r}
+ggplot(data=datat1,aes(x=Depth,y=pclick,color=whale,fill=whale))+geom_line(linewidth=1.2)+ylab("Predicted probabilty of being in \na clicking period")+xlab("Depth(m)")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=Depth), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+## Model as a function of depth
+
+
+```{r}
+gamwhales1<-gam(Clicking1~s(Depth,k=4),data=originaldata1,family=binomial(link="logit"))
+```
+
+### Summary of the model  
+
+```{r}
+summary(gamwhales1) 
+```
+
+
+### AIC
+
+```{r}
+AIC(gamwhales1)
+```
+
+
+
+### Predicting the influence of both variables in the data
+
+
+```{r}
+
+originaldata111<-data.frame(Depth=originaldata1$Depth)
+
+datat11<-data.frame(pclick=predict(gamwhales1,newdata = originaldata111,type="response"),Depth=originaldata111$Depth)#get the prediction
+
+confintervals1<-data.frame(confintervals=predict(gamwhales1,newdata=(originaldata111),type="response",se.fit=T))#get the confidence intervals
+
+datat11$bigfit<-confintervals1$confintervals.fit+confintervals1$confintervals.se.fit
+datat11$smallfit<-confintervals1$confintervals.fit-confintervals1$confintervals.se.fit
+
+```
+
+### Plot of the results from the model 
+
+```{r}
+ggplot(data=datat11,aes(x=Depth,y=pclick))+geom_line(linewidth=1.2)+ylab("Predicted probabilty of being in \na clicking period")+xlab("Depth(m)")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=Depth), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+## Comparing both models
+
+```{r}
+data.frame("Response variable"=rep("Clicking/No clicking",2),"Explanatory variables"=c("depth by narwhal ID","depth"),"AIC"=c(round(AIC(gamwhales),3),round(AIC(gamwhales1),3)))
+```
+
+## Saving the best model and its results
+
+```{r}
+save(file="model_results_click_no_click.rda",list=c("gamwhales","datat1"))
+
+```
+
+
+
+
+
+

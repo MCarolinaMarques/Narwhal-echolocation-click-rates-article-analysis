@@ -1,0 +1,758 @@
+---
+title: "GAM to model the number of clicks per second as a function of depth and whale id"
+author: "Carolina S. Marques"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    force_captions: yes
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    df_print: paged
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  word_document:
+    toc: yes
+    toc_depth: '3'
+csl: mee.csl
+subtitle: 
+bibliography: references.bib
+---
+
+```{r setup,include=FALSE}
+options(encoding = 'UTF-8')
+knitr::opts_chunk$set(echo = TRUE) 
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(dplyr) ##necessary to the function filter 
+library(mgcv)
+library(MASS)
+library(Hmisc)
+library(nlme)
+library(RVAideMemoire)
+library(car)
+library(hrbrthemes) 
+library(dplyr)
+library(tidyverse)
+library(ggrepel)
+theme_set(theme_bw())
+#variance for a weighted mean
+var.wtd.mean.cochran <- function(x,w)
+#
+# Computes the variance of a weighted mean following Cochran 1977 definition
+  # https://stat.ethz.ch/pipermail/r-help/2007-June/133192.html
+#
+{
+n = length(w)
+xWbar = wtd.mean(x,w)
+wbar = mean(w)
+out = n/((n-1)*sum(w)^2)*(sum((w*x-wbar*xWbar)^2)-2*xWbar*sum((w-wbar)*(
+w*x-wbar*xWbar))+xWbar^2*sum((w-wbar)^2))
+return(out)
+}
+
+
+theme_set(theme_bw())
+```
+
+
+
+
+
+# Reading data 
+
+
+
+
+```{r}
+#read data obtained in "01_data_processing.rmd":
+load("processed_data.rda")
+load("cue_rates_obtained.rda")
+sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
+sampledata$time11<-as.numeric(sampledata$rsecs)
+originaldata$depth<-originaldata$Depth
+originaldata$time11<-as.numeric(originaldata$sst)
+onedata$depth<-onedata$Depth
+onedata$time11<-as.numeric(onedata$sst)
+```
+
+
+
+# GAM Models 
+
+## GAM number of clicks per second as a function of depth by whale and as a funtion of time by whale
+
+```{r}
+gamwhales1<-gam(clicks~s(depth,k=7,by=as.factor(whale))+s(time11,k=1,by=as.factor(whale)),data=sampledata,family=poisson(link="log"))
+```
+
+### Summary of the model 
+
+```{r}
+summary(gamwhales1)
+```
+
+### AIC
+
+```{r}
+AIC(gamwhales1)
+```
+
+### Predicting influence of the different expl. variables
+
+```{r}
+dd1<-sampledata%>%
+  group_by(whale)%>%
+  summarise(depth=mean(depth,na.rm=T))# creating a data set to predict the influence of time
+
+
+dd2<-sampledata%>%
+  group_by(whale)%>%
+  summarise(time11=mean(time11,na.rm=T))# creating a data set to predict the influence of depth
+
+originaldata11<-data.frame(depth=sampledata$depth,whale=sampledata$whale)# creating a data set to predict the influence of depth
+
+originaldata11<-full_join(originaldata11,dd2)# joining both infos to create a data set to predict the influence of depth
+
+originaldata111<-data.frame(time11=sampledata$time11,whale=sampledata$whale)# creating a data set to predict the influence of time
+
+originaldata111<-full_join(originaldata111,dd1)# joining both infos to create a data set to predict the influence of time
+
+
+datat1<-data.frame(pclick=predict(gamwhales1,newdata = originaldata11,type="response"),depth=originaldata11$depth,whale=originaldata11$whale)# predicting the influence of depth in the number of clicks produced
+
+confintervals<-data.frame(confintervals=predict(gamwhales1,newdata=(originaldata11),type="response",se.fit=T))# get the corresponding CI
+
+datat1$bigfit<-confintervals$confintervals.fit+confintervals$confintervals.se.fit
+datat1$smallfit<-confintervals$confintervals.fit-confintervals$confintervals.se.fit
+
+datat1$variable<-"Depth (m)"# which variable corresponds
+
+datat11<-data.frame(pclick=predict(gamwhales1,newdata = originaldata111,type="response"),time11=originaldata111$time11,whale=originaldata111$whale)# predicting the influence of time in the number of clicks produced
+
+confintervals<-data.frame(confintervals=predict(gamwhales1,newdata=(originaldata111),type="response",se.fit=T))# get the corresponding CI
+
+datat11$bigfit<-confintervals$confintervals.fit+confintervals$confintervals.se.fit
+datat11$smallfit<-confintervals$confintervals.fit-confintervals$confintervals.se.fit
+
+datat11$variable<-"Time"# which variable corresponds
+
+
+datat<-full_join(datat1,datat11)#Joinning both infos about the variables 
+
+datat$value<-ifelse(datat$variable=="Depth (m)",datat$depth,datat$time11)# turn the variable depth into the real depth
+
+datat$value<-ifelse(datat$variable=="Time",datat$value/(60*60*24),datat$value)# turn the variable time into the real time in days
+
+datat$variable1<-ifelse(datat$variable=="Time","Time since regular echolocation clicks were resumed (days)",datat$variable)# new labels
+
+
+datat$whale<-factor(datat$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))# correct order of the whale  id
+
+```
+
+### Plotting model results/ Figure 5
+
+```{r,fig.width=11}
+ggplot(data=datat,aes(x=value,y=pclick,color=whale,fill=whale))+geom_line(size=1.2)+ylab("Predicted number of clicks / s \nfor the clicking periods")+xlab("")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+facet_wrap(~variable1,scales="free_x", labeller = labeller(variable1 = label_wrap_gen(32)))+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+```{r,fig.width=11}
+p1<-ggplot(data=subset(datat,variable1=="Time since regular echolocation clicks were resumed (days)"),aes(x=value,y=pclick,color=whale,fill=whale))+geom_line(size=1.2)+ylab("")+xlab("Time since regular echolocation clicks \nwere resumed (days)")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(axis.text.y=element_blank(),
+      #  axis.ticks.y=element_blank(),
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+       # axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))+ylim(2,12)
+
+p2<-ggplot(data=subset(datat,variable1=="Depth (m)"),aes(x=value,y=pclick,color=whale,fill=whale))+geom_line(size=1.2)+ylab("Predicted number of clicks / s \nfor the clicking periods")+xlab("Depth (m) \n")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))+ylim(2,12)
+
+ggpubr::ggarrange(p2,p1,ncol=2,common.legend = T,widths = c(0.5,0.4), legend = "right")
+```
+
+### Predicting number of clicks for the clicking periods from the original dataset
+
+```{r}
+onedata$prediction1<-predict(gamwhales1,newdata=(onedata),type="response")# get the prediction from the model
+
+```
+
+### Plot with the predicted number of clicks for the clicking periods from the original dataset / Figure 6
+
+```{r,fig.width=10,fig.height=7}
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction1),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 8,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction1),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,scales="free_x",ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 8,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+## GAM number of clicks per second as a function of depth by whale and as a funtion of time by whale
+
+```{r}
+gamwhales11<-gam(clicks~s(depth,k=7)+s(time11,k=1),data=sampledata,family=poisson(link="log"))
+```
+
+### Summary of the model 
+
+```{r}
+summary(gamwhales1)
+```
+
+### AIC
+
+```{r}
+AIC(gamwhales1)
+```
+
+### Predicting influence of the different expl. variables
+
+```{r}
+dd1<-sampledata%>%
+  summarise(depth=mean(depth,na.rm=T))# creating a data set to predict the influence of time
+
+
+dd2<-sampledata%>%
+  summarise(time11=mean(time11,na.rm=T))# creating a data set to predict the influence of depth
+
+originaldata011<-data.frame(depth=sampledata$depth,time11=mean(sampledata$time11,na.rm=T))# creating a data set to predict the influence of depth
+
+
+originaldata111<-data.frame(time11=sampledata$time11,depth=mean(sampledata$depth,na.rm=T))# creating a data set to predict the influence of time
+
+
+
+datat011<-data.frame(pclick=predict(gamwhales11,newdata = originaldata011,type="response"),depth=originaldata011$depth)# predicting the influence of depth in the number of clicks produced
+
+confintervals<-data.frame(confintervals=predict(gamwhales11,newdata=(originaldata011),type="response",se.fit=T))# get the corresponding CI
+
+datat011$bigfit<-confintervals$confintervals.fit+confintervals$confintervals.se.fit
+datat011$smallfit<-confintervals$confintervals.fit-confintervals$confintervals.se.fit
+
+datat011$variable<-"Depth (m)"# which variable corresponds
+
+datat111<-data.frame(pclick=predict(gamwhales11,newdata = originaldata111,type="response"),time11=originaldata111$time11)# predicting the influence of time in the number of clicks produced
+
+confintervals1<-data.frame(confintervals=predict(gamwhales11,newdata=(originaldata111),type="response",se.fit=T))# get the corresponding CI
+
+datat111$bigfit<-confintervals1$confintervals.fit+confintervals1$confintervals.se.fit
+datat111$smallfit<-confintervals1$confintervals.fit-confintervals1$confintervals.se.fit
+
+datat111$variable<-"Time"# which variable corresponds
+
+
+datat01<-full_join(datat011,datat111)#Joinning both infos about the variables 
+
+datat01$value<-ifelse(datat01$variable=="Depth (m)",datat01$depth,datat01$time11)# turn the variable depth into the real depth
+
+datat01$value<-ifelse(datat01$variable=="Time",datat01$value/(60*60*24),datat01$value)# turn the variable time into the real time in days
+
+datat01$variable1<-ifelse(datat01$variable=="Time","Time since regular echolocation clicks were resumed (days)",datat01$variable)# new labels
+
+```
+
+### Plotting model results/ Figure 5
+
+```{r,fig.width=11}
+ggplot(data=datat01,aes(x=value,y=pclick))+geom_line(size=1.2)+ylab("Predicted number of clicks / s \nfor the clicking periods")+xlab("")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+facet_wrap(~variable1,scales="free_x", labeller = labeller(variable1 = label_wrap_gen(32)))+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+```{r,fig.width=11}
+p11<-ggplot(data=subset(datat01,variable1=="Time since regular echolocation clicks were resumed (days)"),aes(x=value,y=pclick))+geom_line(size=1.2)+ylab("")+xlab("Time since regular echolocation clicks \nwere resumed (days)")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))+ylim(2,8)
+
+p21<-ggplot(data=subset(datat01,variable=="Depth (m)"),aes(x=value,y=pclick))+geom_line(size=1.2)+ylab("Predicted number of clicks / s \nfor the clicking periods")+xlab("Depth (m) \n")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))+ylim(2,8)
+
+ggpubr::ggarrange(p21,p11,ncol=2,common.legend = T,widths = c(0.5,0.45))
+```
+
+### Predicting number of clicks for the clicking periods from the original dataset
+
+```{r}
+onedata$prediction11<-predict(gamwhales11,newdata=(onedata),type="response")# get the prediction from the model
+
+```
+
+### Plot with the predicted number of clicks for the clicking periods from the original dataset
+
+```{r,fig.width=10,fig.height=7}
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction11),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 5.5,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=18),
+        plot.title = element_text(size=21),
+        strip.text.x = element_text(size = 21))
+
+
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction11),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,scales="free_x",ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 5.5,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=18),
+        plot.title = element_text(size=21),
+        strip.text.x = element_text(size = 21))
+```
+
+
+## GAM number of clicks per second as a function of depth by whale 
+
+```{r}
+gamwhales12<-gam(clicks~s(depth,k=7,by=as.factor(whale)),data=sampledata,family=poisson(link="log"))
+```
+
+### Summary of the model 
+
+```{r}
+summary(gamwhales12)
+```
+
+### AIC
+
+```{r}
+AIC(gamwhales12)
+```
+
+### Predicting influence of the different expl. variables
+
+```{r}
+originaldata112<-data.frame(depth=sampledata$depth,whale=sampledata$whale)# creating a data set to predict the influence of depth
+
+datat12<-data.frame(pclick=predict(gamwhales12,newdata = originaldata112,type="response"),depth=originaldata112$depth,whale=originaldata112$whale)# predicting the influence of depth in the number of clicks produced
+
+confintervals<-data.frame(confintervals=predict(gamwhales12,newdata=(originaldata112),type="response",se.fit=T))# get the corresponding CI
+
+datat12$bigfit<-confintervals$confintervals.fit+confintervals$confintervals.se.fit
+datat12$smallfit<-confintervals$confintervals.fit-confintervals$confintervals.se.fit
+
+datat12$variable<-"Depth (m)"# which variable corresponds
+
+
+datat2<-(datat12)#Joinning both infos about the variables 
+
+datat2$value<-ifelse(datat2$variable=="Depth (m)",datat2$depth,datat2$time11)# turn the variable depth into the real depth
+
+datat2$whale<-factor(datat2$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))# correct order of the whale  id
+
+```
+
+### Plotting model results
+
+
+```{r}
+ggplot(data=subset(datat2,variable=="Depth (m)"),aes(x=value,y=pclick,color=whale,fill=whale))+geom_line(size=1.2)+ylab("Predicted number of clicks / s \nfor the clicking periods")+xlab("Depth (m) \n")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+```
+
+### Predicting number of clicks for the clicking periods from the original dataset
+
+```{r}
+onedata$prediction12<-predict(gamwhales12,newdata=(onedata),type="response")# get the prediction from the model
+
+```
+
+### Plot with the predicted number of clicks for the clicking periods from the original dataset
+
+```{r,fig.width=10,fig.height=7}
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction12),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 8,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 17), 
+        axis.text.x = element_text(size = 18,angle=60, hjust=1),
+        axis.text.y = element_text(size = 18),
+        axis.title.y = element_text(size = 17),
+        legend.title = element_text(size=17),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction12),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,scales="free_x",ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 8,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 18,angle=60, hjust=1),
+        axis.text.y = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=17),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+
+
+## GAM number of clicks per second as a function of depth 
+
+```{r}
+gamwhales13<-gam(clicks~s(depth,k=7),data=sampledata,family=poisson(link="log"))
+```
+
+### Summary of the model 
+
+```{r}
+summary(gamwhales13)
+```
+
+### AIC
+
+```{r}
+AIC(gamwhales13)
+```
+
+### Predicting influence of the different expl. variables
+
+```{r}
+originaldata113<-data.frame(depth=sampledata$depth)# creating a data set to predict the influence of depth
+
+datat13<-data.frame(pclick=predict(gamwhales13,newdata = originaldata113,type="response"),depth=originaldata113$depth)# predicting the influence of depth in the number of clicks produced
+
+confintervals<-data.frame(confintervals=predict(gamwhales13,newdata=(originaldata113),type="response",se.fit=T))# get the corresponding CI
+
+datat13$bigfit<-confintervals$confintervals.fit+confintervals$confintervals.se.fit
+datat13$smallfit<-confintervals$confintervals.fit-confintervals$confintervals.se.fit
+
+datat13$variable<-"Depth (m)"# which variable corresponds
+
+
+datat3<-(datat13)#Joinning both infos about the variables 
+
+datat3$value<-ifelse(datat3$variable=="Depth (m)",datat3$depth,datat3$time11)# turn the variable depth into the real depth
+
+```
+
+### Plotting model results
+
+
+```{r}
+ggplot(data=subset(datat3,variable=="Depth (m)"),aes(x=value,y=pclick))+geom_line(size=1.2)+ylab("Predicted number of clicks / s \nfor the clicking periods")+xlab("Depth (m) \n")+
+  geom_ribbon(aes(ymin = smallfit,ymax=bigfit,x=value), alpha = .4)+
+  theme_bw()+  scale_color_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+  scale_fill_manual(values=c("black", "blue4","dodgerblue1","turquoise4","green4","darkorchid4","coral4","darkorange"))+labs(fill="",color="")+
+  theme(
+        axis.title.x = element_text(size = 20), 
+        axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.y = element_text(size = 20),
+        legend.title = element_text(size=20),
+        legend.text= element_text(size=19),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+```
+
+### Predicting number of clicks for the clicking periods from the original dataset
+
+```{r}
+onedata$prediction13<-predict(gamwhales13,newdata=(onedata),type="response")# get the prediction from the model
+
+```
+
+### Plot with the predicted number of clicks for the clicking periods from the original dataset
+
+```{r,fig.width=10,fig.height=7}
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction13),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 5.5,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+
+ggplot(originaldata, aes(y=-Depth, x=sst/(60*60*24)))+
+    geom_point(color="black",shape=".") +
+   geom_point(data=onedata,aes(colour=(prediction13),y=-depth,x=sst/(60*60*24)),alpha=0.3,shape=".")+
+  xlab("Time since regular echolocation clicks were resumed (days)")+ylab("Depth(m)")+facet_wrap(~whale,scales="free_x",ncol=4,nrow=2)+labs(color="Predicted number \nof clicks \\ s")+scale_color_gradient2(low = "blue",
+midpoint = 5.5,
+mid = "green",
+high = "red",
+space="Lab",
+  na.value = "black")+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+## Comparing models
+
+```{r}
+data.frame("Response variable"=rep("Number of clicks per second",4),"Explanatory variables"=c("depth by narwhal ID and time by narwhal","depth and time","depth by narwhal ID","depth"),"AIC"=c(round(AIC(gamwhales1),3),round(AIC(gamwhales11),3),round(AIC(gamwhales12),3),round(AIC(gamwhales13),3)))
+```
+
+### Estimating the cue rate using the model results
+
+```{r}
+tagdur<-originaldata%>%
+  dplyr::group_by(whale)%>%
+  dplyr::summarise(sumone=unique(len_click),ll=unique(tot_len))
+
+
+onedata<-full_join(onedata,tagdur)
+
+est_cr<-onedata%>%
+  group_by(whale)%>%
+  summarise(meany=mean(prediction1,na.rm=T),sumone=unique(sumone),ll=unique(ll),mean=(meany*sumone)/ll,sd=sd(prediction1,na.rm=T),cv=sd/meany,
+              lower = meany-qt(0.975,df=n()-1)*sd/sqrt(n()),
+              upper = meany+qt(0.975,df=n()-1)*sd/sqrt(n()))
+```
+
+
+#### Results
+
+```{r}
+n <- as.numeric(nrow(est_cr))
+xbar <- mean(est_cr$mean,na.rm=T) 
+s <- sd(est_cr$mean,na.rm=T)
+
+#calculate margin of error
+margin <- qt(0.975,df=n-1)*s/sqrt(n)
+
+#calculate lower and upper bounds of confidence interval
+low <- xbar - margin
+high <- xbar + margin
+
+
+cv0<-s/xbar
+  
+data0<-data.frame(mean=xbar,low=low,high=high,cv=cv0,sd=s,id="Standard Average")
+#var(df5$mean)
+```
+
+
+The standard average for the cue rate is `r round(xbar,3) ` and the corresponding 95% CI is [`r round(low,3)` ,`r round(high,3)`]. The cv obtained is `r round(cv0,3)` and the sd is `r round(s,3)`.
+
+
+#### Weighted Results
+
+
+
+```{r}
+wxbar<-  weighted.mean(est_cr$mean,est_cr$ll,na.rm=T) 
+ws <- sqrt(var.wtd.mean.cochran(est_cr$mean,est_cr$ll))
+
+#calculate margin of error
+wmargin <- qt(0.975,df=n-1)*ws
+
+#calculate lower and upper bounds of confidence interval
+wlow <- wxbar - wmargin
+whigh <- wxbar + wmargin
+
+wcv<-ws/wxbar
+#var(df5$mean)
+
+wdata0<-data.frame(mean=wxbar,low=wlow,high=whigh,cv=wcv,sd=ws,id="Weighted Average")
+```
+
+The weighted average for the cue rate is `r round(wxbar,3) ` and the corresponding 95% CI is [`r round(wlow,3)` ,`r round(whigh,3)`]. The cv obtained is `r round(wcv,3)` and the weighted sd is `r round(ws,3)`.
+
+#### Joining results from cue rates
+
+```{r}
+adata<-full_join(data0,wdata0)
+adata$pred<-"Prediction"
+data$pred<-"Original"
+cr_data<-full_join(adata,data)
+cr_data<-data.frame(cr_data[cr_data$id%in%c("Weighted Average","Standard Average"),])
+```
+
+
+```{r}
+data.frame(cr_data[cr_data$id%in%c("Weighted Average","Standard Average"),c("id","pred","mean","sd","cv","low","high")])
+```
+
+
+#### Plotting results
+
+
+```{r}
+ggplot(cr_data, aes(x= id, y= mean,color=pred,fill=pred))+
+ # geom_point()+ 
+  geom_pointrange(aes(ymin=low,ymax=high,color=pred,fill=pred), 
+  position = position_dodge(width = 0.5))+
+  ylab("Mean Cue Rate")+
+  xlab("")+
+  labs(color="",fill="")+
+  theme(axis.text.x=element_text(angle=30, hjust=1))
+
+
+```
+
+### Saving the best model and its results
+
+```{r}
+save(file="model_results_n_clicks.rda",list=c("gamwhales1","datat"))
+
+```
+

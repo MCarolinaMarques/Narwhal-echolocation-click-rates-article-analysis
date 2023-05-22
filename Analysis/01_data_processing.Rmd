@@ -1,0 +1,276 @@
+---
+title: "Data Processing"
+author: "Carolina S. Marques"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    force_captions: yes
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    df_print: paged
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  word_document:
+    toc: yes
+    toc_depth: '3'
+csl: mee.csl
+subtitle: 
+bibliography: references.bib
+---
+
+```{r setup,include=FALSE}
+options(encoding = 'UTF-8')
+knitr::opts_chunk$set(echo = TRUE) 
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(dplyr) ##necessary to the function filter 
+library(mgcv)
+library(MASS)
+library(nlme)
+library(RVAideMemoire)
+library(car)
+library(hrbrthemes) 
+library(dplyr)
+library(tidyverse)
+library(ggrepel)
+library(stringr)
+theme_set(theme_bw())
+```
+
+# Introduction 
+
+In this document we process and treat the data to make it easier to run the rest of the files that do the other analysis, like the models.
+
+# Reading data 
+
+
+```{r}
+originaldata <- data.table::fread("originaldata.txt", sep=" ") 
+sampledata <- data.table::fread("sampledata.txt", sep=" ")
+
+```
+
+# Data processing
+
+```{r}
+originaldata <- originaldata[-which(originaldata$Date.time == ""), ]#remove unknown time values
+originaldata$whale<-ifelse(originaldata$whale=="Mara","Mára",originaldata$whale)# put the correct name for Mára
+sampledata$whale<-ifelse(sampledata$whale=="Mara","Mára",sampledata$whale)# put the correct name for Mára
+
+originaldata<-originaldata%>%
+  group_by(whale)%>%
+  mutate(n=1:n())#get the seconds since the start of the record
+
+```
+
+
+
+```{r}
+
+# next we create a columns with the clicking information:
+originaldata$click_status<-ifelse(originaldata$whale=="Balder" & originaldata$n>=601441, "Unk",
+       ifelse(originaldata$whale=="Jonas"& originaldata$n>=551016, "Unk",
+               ifelse(!is.na(originaldata$Clicking), "Clicking",
+                      ifelse(is.na(originaldata$Clicking)|is.nan(originaldata$Clicking), "Silent", "Silent"))))
+
+originaldata$click_status[is.na(originaldata$click_status)]<-"Silent"
+
+all_originaldata<-originaldata
+```
+
+
+```{r}
+clim<-20
+
+#We needed to replace the click values per second higher than 20 by 0, because the counting of clicks in MT Viewer included also the buzzes
+
+sampledata$clicks<-ifelse(sampledata$clicks>clim,0,sampledata$clicks)
+sampledata$clicks<-ifelse(sampledata$clicks>clim,0,sampledata$clicks)
+
+
+```
+
+
+
+
+# Data subset
+
+Since we only use the data that corresponds to the time after the regular echolocation clicks were resumed and some of the tags hadn't recorded the sound until the end of the of depth recorded, we needed to cut the data frame.
+
+```{r}
+originaldata<-subset(originaldata, 
+                whale=="Jonas"& n<551016 & n>23910 | 
+                  whale=="Balder" & n>225750 & n<601441| 
+                  whale=="Eistla"&n>64412.5|
+                  whale=="Freya"&n>132410|
+                  whale=="Frida"&n>97110|
+                  whale=="Mára"&n>32330|
+                  whale=="Mutti"&n>104275|
+                  whale=="Thora"&n>33870)
+
+```
+
+
+
+# Correcting time variables
+
+Here we solve some problems encountered in the time variables while doing the analysis. 
+
+```{r}
+
+originaldata$Date.time <- str_replace(originaldata$Date.time, "2016", "16")
+
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/31/16", "08/31/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/24/16", "08/24/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/25/16", "08/25/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/26/16", "08/26/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/27/16", "08/27/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/28/16", "08/28/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/29/16", "08/29/16")
+originaldata$Date.time <- str_replace(originaldata$Date.time, "8/30/16", "08/30/16")
+
+
+
+originaldata$Date<-as.Date(originaldata$Date.time,format="%m/%d/%y")
+originaldata$Date.time<-ifelse(originaldata$whale=="Balder" & as.character(originaldata$Date)%in%c("2016-09-02","2016-09-01"),paste0(originaldata$Date.time,":00",sep=""),originaldata$Date.time)
+
+originaldata$Date.time1<- as.POSIXct((originaldata$Date.time),format="%m/%d/%y %H:%M:%S", tz = "America/Tijuana")
+
+originaldata$Date.time2<-as.POSIXct((originaldata$Date.time),format="%d/%m/%y %H:%M:%S", tz = "America/Tijuana")                               
+
+originaldata$Date.time3<-ifelse(originaldata$whale=="Freya",as.character(originaldata$Date.time2),as.character(originaldata$Date.time1))
+
+originaldata$Date.time<-as.POSIXct(originaldata$Date.time1,format="%y/%m/%d %H:%M:%S", tz = "America/Tijuana")
+
+originaldata<-originaldata%>%# get the seconds since the regular echolocation clicks were resumed
+  group_by(whale)%>%
+  mutate(sst=1:n(),rsecs=1:n())
+
+```
+
+```{r}
+
+originaldataff<-originaldata[originaldata$whale=="Frida",]
+
+prop_click_data<-originaldataff%>%
+  group_by(whale,click_status)%>%
+  summarise(dur=n())
+
+prop_click_data1<-prop_click_data%>%
+  group_by(whale)%>%
+  summarise(tot=sum(dur),value=ifelse(click_status=="Clicking",dur,0), clickings=sum(value),prop=clickings/tot)
+
+data.frame(whale=unique(prop_click_data1$whale),prop=unique(prop_click_data1$prop))
+```
+
+
+
+# Get the time where the record started
+
+```{r}
+beg=originaldata[originaldata$sst==1,c("whale","Date.time")]
+
+beg$mini<-ifelse(beg$whale=="Freya", as.character(as.POSIXct("2013-08-10 05:27:00",format="%Y-%m-%d %H:%M:%S", tz = "America/Tijuana")), (as.character(beg$Date.time)))
+
+beg$Date.time<-as.POSIXct(beg$mini,format="%Y-%m-%d %H:%M:%S", tz = "America/Tijuana")
+beg<-beg[,-3]
+colnames(beg)<-c("whale","minum")
+```
+
+
+# Time variables in the sampled data
+
+```{r}
+#convert date/time in format month-day-year hour:min:sec
+sampledata$time <- as.POSIXct(sampledata$time, format="%m/%d/%y %H:%M:%S", tz = "America/Tijuana")
+sampledata$time <- as.POSIXct(sampledata$time, format="%m/%d/%y %H:%M:%S", tz = "America/Tijuana")
+
+#Considering time since the first sample selected started
+sampledata$mins <- difftime(time1=sampledata$time, time2=sampledata$time[1], units ="mins")
+sampledata$mins <- difftime(time1=sampledata$time, time2=sampledata$time[1], units ="mins")
+
+#Convert time differences (mins) in numeric format
+sampledata$mins=as.numeric(sampledata$mins)
+sampledata$mins=as.numeric(sampledata$mins) 
+
+sampledata<-full_join(sampledata,beg)
+
+
+#Considering time since the first sample selected started
+sampledata$minn<-as.POSIXct((sampledata$minum),format="%m/%d/%y %H:%M:%S", tz = "America/Tijuana")
+
+sampledata$rsecs <- difftime(time1=sampledata$time,time2=as.POSIXlt(sampledata$minn), units ="sec", tz = "America/Tijuana")# this corresponds to  number of seconds since the regular echolocation clicks were resumed
+
+```
+
+# Time variables in the original data
+
+
+```{r}
+
+originaldata<-full_join(originaldata,beg)
+
+originaldata$minn<-as.POSIXct((originaldata$minum),format="%m/%d/%y %H:%M:%S", tz = "America/Tijuana")
+
+originaldata$rsecs <-difftime(time1=originaldata$Date.time,time2=as.POSIXlt(originaldata$minn), units ="sec", tz = "America/Tijuana") #this corresponds to  number of seconds since the regular echolocation clicks were resumed
+
+```
+
+
+# Extract the information that corresponds to the duration of clicking periods
+
+```{r}
+onedata<-originaldata[originaldata$click_status=="Clicking",]# select clicking periods
+
+onedata$depth<-onedata$Depth
+onelen<-onedata%>%
+  group_by(whale)%>%
+  summarise(len_click=n())# get the duration of the clicking periods by whale
+
+alllen<-originaldata%>%
+  group_by(whale)%>%
+  summarise(tot_len=n())# get the full duration by whale
+
+durinfo<-full_join(alllen,onelen)# joing both infos
+originaldata<-full_join(originaldata,durinfo)#adding this information to the original data frame
+
+sampledata<-full_join(sampledata,durinfo)#adding this information to the samples data frame
+```
+
+
+
+# Correcting levels in whale variable
+
+
+```{r}
+originaldata$whale<-factor(originaldata$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))
+all_originaldata$whale<-factor(all_originaldata$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))
+sampledata$whale<-factor(sampledata$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))
+onedata$whale<-factor(onedata$whale,levels=c("Freya","Thora","Mára","Frida","Eistla","Balder","Jonas","Mutti"))
+
+```
+
+
+# Saving data
+
+```{r}
+save(list=c("originaldata","sampledata","onedata"),file="processed_data.rda")
+
+save(list=c("all_originaldata"),file="originald_data_processed.rda")
+
+
+```
+
+
+# References
+
