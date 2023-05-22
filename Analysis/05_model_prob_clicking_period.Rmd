@@ -63,7 +63,7 @@ sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
 
 #  GAM models 
 
-For computational efficiency, the data was sub-sampled considering a systematic sampling with random start, selecting only one out of every 10 samples in the original data. 
+For computational efficiency, the data was sub-sampled considering a systematic sampling with random start, selecting only one out of every 10 rows in the original data. 
 
 ```{r}
 originaldata$Clicking1<-ifelse(originaldata$click_status=="Silent",0,1)

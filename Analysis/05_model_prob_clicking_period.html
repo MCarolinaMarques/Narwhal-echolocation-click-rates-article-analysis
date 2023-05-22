@@ -1681,7 +1681,7 @@ period as a function of depth and whale id.</p>
 <h1><span class="header-section-number">3</span> GAM models</h1>
 <p>For computational efficiency, the data was sub-sampled considering a
 systematic sampling with random start, selecting only one out of every
-10 samples in the original data.</p>
+10 rows in the original data.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>originaldata<span class="sc">$</span>Clicking1<span class="ot">&lt;-</span><span class="fu">ifelse</span>(originaldata<span class="sc">$</span>click_status<span class="sc">==</span><span class="st">&quot;Silent&quot;</span>,<span class="dv">0</span>,<span class="dv">1</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                         </span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>originaldata1<span class="ot">=</span>originaldata[<span class="fu">seq</span>(<span class="dv">1</span>,<span class="fu">nrow</span>(originaldata),<span class="at">by=</span><span class="dv">10</span>),]</span></code></pre></div>
