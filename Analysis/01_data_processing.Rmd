@@ -248,6 +248,59 @@ sampledata<-full_join(sampledata,durinfo)#adding this information to the samples
 ```
 
 
+# Add year of the whales
+
+```{r}
+originaldata$year<-ifelse(originaldata$whale=="Freya",2013,
+                        ifelse(originaldata$whale%in%c("Thora","Mára"),2014,
+                          ifelse(originaldata$whale%in%c("Eistla","Balder"), 2016,
+                            ifelse(originaldata$whale=="Frida",2015,2019))))
+
+sampledata$year<-ifelse(sampledata$whale=="Freya",2013,
+                        ifelse(sampledata$whale%in%c("Thora","Mára"),2014,
+                          ifelse(sampledata$whale%in%c("Eistla","Balder"), 2016,
+                            ifelse(sampledata$whale=="Frida",2015,2019))))
+
+onedata$year<-ifelse(onedata$whale=="Freya",2013,
+                        ifelse(onedata$whale%in%c("Thora","Mára"),2014,
+                          ifelse(onedata$whale%in%c("Eistla","Balder"), 2016,
+                            ifelse(onedata$whale=="Frida",2015,2019))))
+
+all_originaldata$frequency<-ifelse(all_originaldata$whale=="Freya",2013,
+                    ifelse(all_originaldata$whale%in%c("Thora","Mára"),2014,
+                      ifelse(all_originaldata$whale%in%c("Eistla","Balder"), 2016,
+                        ifelse(all_originaldata$whale=="Frida",2015,2019))))
+```
+
+
+
+# Add sex of the whales
+
+```{r}
+originaldata$sex<-ifelse(originaldata$whale%in%c("Balder","Jonas"),"Male","Female")
+
+sampledata$sex<-ifelse(sampledata$whale%in%c("Balder","Jonas"),"Male","Female")
+
+onedata$sex<-ifelse(onedata$whale%in%c("Balder","Jonas"),"Male","Female")
+
+all_originaldata$sex<-ifelse(all_originaldata$whale%in%c("Balder","Jonas"),"Male","Female")
+```
+
+
+# Add acoustic sample rate 
+
+```{r}
+originaldata$frequency<-ifelse(originaldata$whale%in%c("Freya","Thora","Mára","Eistla"),"25811 /154868","25811")
+
+sampledata$frequency<-ifelse(sampledata$whale%in%c("Freya","Thora","Mára","Eistla"),"25811 /154868","25811")
+
+onedata$frequency<-ifelse(onedata$whale%in%c("Freya","Thora","Mára","Eistla"),"25811 /154868","25811")
+
+all_originaldata$frequency<-ifelse(all_originaldata$whale%in%c("Freya","Thora","Mára","Eistla"),"25811 /154868","25811")
+```
+
+
+
 
 # Correcting levels in whale variable
 
@@ -264,6 +317,7 @@ onedata$whale<-factor(onedata$whale,levels=c("Freya","Thora","Mára","Frida","Ei
 # Saving data
 
 ```{r}
+
 save(list=c("originaldata","sampledata","onedata"),file="processed_data.rda")
 
 save(list=c("all_originaldata"),file="originald_data_processed.rda")
