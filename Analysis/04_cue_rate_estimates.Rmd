@@ -45,7 +45,7 @@ library(Hmisc)
 #variance for a weighted mean
 var.wtd.mean.cochran <- function(x,w)
 #
-# Computes the variance of a weighted mean following Cochran 1977 definition
+# Computes the variance of a weighted mean fottowing Cochran 1977 definition
   # https://stat.ethz.ch/pipermail/r-help/2007-June/133192.html
 #
 {
@@ -92,29 +92,32 @@ sampledata<-full_join(sampledata,tagdur)
 
 # Cue rate 
 
-## Standard average and CI
-
+# Table 3
 
 ```{r}
 sampledata11<-sampledata%>%
-  group_by(whale)%>%
-  summarise(meany=mean(clicks,na.rm=T),sumone=unique(sumone),ll=unique(ll),mean=(meany*sumone)/ll,sd=sd(clicks,na.rm=T),cv=sd/meany,
-              lower = meany-qt(0.975,df=n()-1)*sd/sqrt(n()),
-              upper = meany+qt(0.975,df=n()-1)*sd/sqrt(n()))
-# ll is the full length of the tag, sumone is the length of the time spent clicking
+  group_by(`Narwhal.ID`=whale)%>%
+  summarise(ck=round(mean(clicks,na.rm=T),2),tc=unique(sumone),tt=unique(ll),rk=round((ck*tc)/tt,2),sd=round(sd(clicks,na.rm=T),2),CV=round(sd/ck,2),
+              lower = round(ck-qt(0.975,df=n()-1)*sd/sqrt(n()),2),
+              upper = round(ck+qt(0.975,df=n()-1)*sd/sqrt(n()),2),`95% CI`= paste0("[",lower, ",",upper,"]",sep=""))
+# tt is the full length of the tag, sumone is the length of the time spent clicking
 
 
-sampledata11
+sampledata11[,c("Narwhal.ID", "tt", "tc", "ck", "rk", "CV", "95% CI")]
 
-durdata<-sampledata11[,c("whale","ll")]
+
+
+durdata<-sampledata11[,c("Narwhal.ID","tt")]
 ```
+
+## Standard average and CI
 
 ### Results
 
 ```{r}
 n <- as.numeric(nrow(sampledata11))
-xbar <- mean(sampledata11$mean,na.rm=T) 
-s <- sd(sampledata11$mean,na.rm=T)
+xbar <- mean(sampledata11$rk,na.rm=T) 
+s <- sd(sampledata11$rk,na.rm=T)
 
 #calculate margin of error
 margin <- qt(0.975,df=n-1)*s/sqrt(n)
@@ -139,8 +142,8 @@ The standard average for the cue rate is `r round(xbar,3) ` and the correspondin
 
 
 ```{r}
-wxbar<-  weighted.mean(sampledata11$mean,sampledata11$ll,na.rm=T) 
-ws <- sqrt(var.wtd.mean.cochran(sampledata11$mean,sampledata11$ll))
+wxbar<-  weighted.mean(sampledata11$rk,sampledata11$tt,na.rm=T) 
+ws <- sqrt(var.wtd.mean.cochran(sampledata11$rk,sampledata11$tt))
 
 #calculate margin of error
 wmargin <- qt(0.975,df=n-1)*ws
@@ -168,11 +171,6 @@ data<-full_join(wdata0,data0)
 
 ```{r}
 data.frame(data[,c("id","mean","sd","cv","low","high")])
-```
-
-
-```{r}
-data.frame(data[data$id%in%c("Weighted Average","Standard Average"),c("id","mean","sd","cv","low","high")])
 ```
 
 
