@@ -113,6 +113,8 @@ ggplot(originaldata, aes(x=sst/(60*60*24), y=-Depth, colour=click_status))+
         legend.text= element_text(size=17),
         plot.title = element_text(size=20),
         strip.text.x = element_text(size = 21))
+
+ggsave("Figures/Figure2.jpeg",dpi=600)
 ```
 
 ## Other visualization
