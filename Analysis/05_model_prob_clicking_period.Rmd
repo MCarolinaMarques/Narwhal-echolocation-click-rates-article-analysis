@@ -125,6 +125,8 @@ ggplot(data=datat1,aes(x=Depth,y=pclick,color=whale,fill=whale))+geom_line(linew
         legend.text= element_text(size=19),
         plot.title = element_text(size=20),
         strip.text.x = element_text(size = 21))
+
+ggsave("Figures/Figure4.jpeg",dpi=600)
 ```
 
 ## Model as a function of depth
