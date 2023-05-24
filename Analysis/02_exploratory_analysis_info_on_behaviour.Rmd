@@ -1,0 +1,290 @@
+---
+title: "Exploratory analysis"
+author: "Carolina S. Marques"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    force_captions: yes
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  word_document:
+    toc: yes
+    toc_depth: '3'
+csl: mee.csl
+subtitle: 
+bibliography: references.bib
+---
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(dplyr) 
+library(mgcv)
+library(MASS)
+library(nlme)
+library(RVAideMemoire)
+library(car)
+library(hrbrthemes) 
+library(dplyr)
+library(tidyverse)
+```
+
+# Introduction 
+
+In this document we obtain depth profiles (Figure 2 in the article) and basic information on the behavior of the narwhals, for example: proportion of time spent clicking; time until the resume of the regular echolocation clicks; total length of the recording; length of the recording used for the analysis...
+
+# Reading data 
+
+
+```{r}
+#read data obtained in "01_data_processing.rmd":
+load("originald_data_processed.rda")
+load("processed_data.rda")
+sampledata<-sampledata[sampledata$rsecs>=0&!is.na(sampledata$clicks),]
+```
+
+# Depth profiles with all of the records
+
+
+```{r,fig.width=10,fig.height=7}
+datasec<-originaldata%>%
+  group_by(whale)%>%
+  summarise(time=min(n)/(60*60*24))
+
+
+ggplot(all_originaldata, aes(x=n/(60*60*24), y=-Depth, colour=click_status))+
+  geom_point(shape=".")+ 
+  scale_color_manual(values = c("Silent"="indianred1","Clicking"="skyblue1","Unk"="gray24"), name = "Clicking status") + facet_wrap(~whale,ncol=4, scales = "free_x") +
+  xlab("Days since start of the record")+ylab("Depth(m)")+
+  guides(colour = guide_legend(override.aes = list(size=2,shape=19)))+
+  geom_vline(data=datasec,aes(xintercept=time), colour="black")+
+  geom_vline(data=subset(all_originaldata, whale=="Balder"), aes(xintercept=601441/(60*60*24)), colour="red") +
+  geom_vline(data=subset(all_originaldata, whale=="Jonas"), aes(xintercept=551016/(60*60*24)), colour="blue")+theme_bw()+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+```
+
+
+
+In Balder data, the firsts 23s of sounds produced after about 12h of silence were ignored and removed since Balder remained silent for nearly 24h between those 23s, which were unusually short clicking times framed by big gaps of silence (@Blackwell2018). Also, 68s of clicking after those 23s were deleted to have a consistent clicking during the foraging behavior. All other whales were silent for the entire period before the black line. The samples from red and blue lines to the end of the records had to be deleted too.
+
+Before the foraging behavior started, narwhals had long periods of silence because of their capture and tagging, so these periods (before the black line) had to be removed, as they are not representative of narwhals' foraging behavior (@Blackwell2018). To do so, plots for each narwhal were created to select the seconds where the foraging behavior started without those unusual gaps of silence. We considered that the foraging behavior was initiated from the first dive, where sounds were being produced regularly over time. The next plots show the same as above, but for a better visualization, it is only represented the first dive where the sounds were being produced regularly over time for each whale. 
+
+# Depth profiles with the records after the regular echolocation clicks were resumed
+
+## Figure 2
+
+```{r,fig.width=10,fig.height=7}
+ggplot(originaldata, aes(x=sst/(60*60*24), y=-Depth, colour=click_status))+
+  geom_point(shape=".")+ 
+  scale_color_manual(values = c("Silent"="indianred1","Clicking"="skyblue1"), name = "Clicking status") + 
+  facet_wrap(~whale,ncol=4, scales = "free_x") +
+  xlab("Days since the resume of the regular echolocation clicks")+
+  ylab("Depth (m)")+
+  guides(colour = guide_legend(override.aes = list(size=2,shape=19)))+
+  theme_bw()+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+
+ggsave("Figures/Figure2.jpeg",dpi=600)
+```
+
+## Other visualization
+
+
+```{r,fig.width=10,fig.height=7}
+ggplot(originaldata, aes(x=sst/(60*60*24), y=-Depth, colour=click_status))+
+  geom_point(shape=".")+ 
+  scale_color_manual(values = c("Silent"="indianred1","Clicking"="skyblue1"), name = "Clicking status") + 
+  facet_wrap(~whale,ncol=4) +
+  xlab("Days since the resume of the regular echolocation clicks")+
+  ylab("Depth (m)")+
+  guides(colour = guide_legend(override.aes = list(size=2,shape=19)))+
+  theme_bw()+
+  theme(
+        axis.title.x = element_text(size = 18), 
+        axis.text.x = element_text(size = 17,angle=60, hjust=1),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 18),
+        legend.title = element_text(size=18),
+        legend.text= element_text(size=17),
+        plot.title = element_text(size=20),
+        strip.text.x = element_text(size = 21))
+```
+
+
+# Time until the start of the normal behaviour
+
+```{r}
+datasec<-originaldata%>%
+  group_by(whale)%>%
+  summarise(time=min(n)/(60*60*24))
+
+data.frame(datasec)
+```
+
+The minimum time until the regular echolocation clicks were resumed was `r round(min(datasec$time),3)` days.
+
+The maximum time until the regular echolocation clicks were resumed was `r round(max(datasec$time),3)` days.
+
+The sd time until the regular echolocation clicks were resumed was `r round(sd(datasec$time),3)` days.
+
+The mean time until the regular echolocation clicks were resumed was `r round(mean(datasec$time),3)` days.
+
+The median time until the regular echolocation clicks were resumed was `r round(median(datasec$time),3)` days.
+
+The cv time until the regular echolocation clicks were resumed was `r round((sd(datasec$time)/mean(datasec$time)),3)` days.
+
+# Total time of recording
+
+
+```{r}
+datasec_tot<-all_originaldata%>%
+  group_by(whale)%>%
+  summarise(time=n()/(60*60*24))
+
+data.frame(datasec_tot)
+```
+
+
+The total recorded time for all the whales together was `r round(sum(datasec_tot$time),3)` days.
+
+The minimum recorded time was `r round(min(datasec_tot$time),3)` days.
+
+The maximum recorded time was `r round(max(datasec_tot$time),3)` days.
+
+The sd recorded time was `r round(sd(datasec_tot$time),3)` days.
+
+The mean recorded time was `r round(mean(datasec_tot$time),3)` days.
+
+The median recorded time was `r round(median(datasec_tot$time),3)` days.
+
+
+The cv recorded time was `r round((sd(datasec_tot$time)/mean(datasec_tot$time)),3)` days.
+
+
+# Total time of recording after the regular echolocation clicks were resumed
+
+
+
+```{r}
+datasec_tot_r<-originaldata%>%
+  group_by(whale)%>%
+  summarise(time=n()/(60*60*24))
+
+data.frame(datasec_tot_r)
+```
+
+
+
+The total time of recording after the regular echolocation clicks were resumed for all the whales together was `r round(sum(datasec_tot_r$time),3)` days.
+
+The minimum time of recording after the regular echolocation clicks were resumed was `r round(min(datasec_tot_r$time),3)` days.
+
+The maximum time of recording after the regular echolocation clicks were resumed was `r round(max(datasec_tot_r$time),3)` days.
+
+The sd time of recording after the regular echolocation clicks were resumed was `r round(sd(datasec_tot_r$time),3)` days.
+
+The mean time of recording after the regular echolocation clicks were resumed was `r round(mean(datasec_tot_r$time),3)` days.
+
+The median time of recording after the regular echolocation clicks were resumed was `r round(median(datasec_tot_r$time),3)` days.
+
+
+The cv time of recording after the regular echolocation clicks were resumed was `r round((sd(datasec_tot_r$time)/mean(datasec_tot_r$time)),3)` days.
+
+
+# Proportion of time spent clicking
+
+```{r}
+prop_click_data<-originaldata%>%
+  group_by(whale,click_status)%>%
+  summarise(dur=n())
+
+
+prop_click_data1<-prop_click_data%>%
+  group_by(whale)%>%
+  summarise(tot=sum(dur),value=ifelse(click_status=="Clicking",dur,0), clickings=sum(value),prop=clickings/tot)
+
+prop_click_data11<- data.frame(whale=unique(prop_click_data1$whale),prop=unique(prop_click_data1$prop))
+
+data.frame(whale=unique(prop_click_data1$whale),prop=unique(prop_click_data1$prop))
+```
+
+
+
+The minimum proportion of time spent in a clicking period  was `r round(min(prop_click_data1$prop),3)` 
+
+The maximum proportion of time spent in a clicking period  was `r round(max(prop_click_data1$prop),3)` 
+
+The mean proportion of time spent in a clicking period  was `r round(mean(prop_click_data1$prop),3)` 
+
+The median proportion of time spent in a clicking period  was `r round(median(prop_click_data1$prop),3)` 
+
+
+The sd proportion of time spent in a clicking period  was `r round(sd(prop_click_data1$prop),3)` 
+
+The cv proportion of time spent in a clicking period  was `r round(sd(prop_click_data1$prop)/mean(prop_click_data1$prop),3)` 
+
+
+# Number of samples analysed for clicks per second
+
+```{r}
+sample_n<-data.frame(sampledata%>%
+  group_by(whale)%>%
+  summarise(n_samples=n()))
+
+
+sample_n
+```
+
+# Table 1
+
+```{r}
+d1<-data.frame(`Narwhal ID`=datasec$whale,tf=round(datasec$time,2))# time until the resume of the regular echolocation clicks 
+d0<-data.frame(`Narwhal ID`=datasec_tot$whale,time=round(datasec_tot$time,2))# total time of the recording
+d2<-data.frame(`Narwhal ID`=datasec_tot_r$whale,ta=round(datasec_tot_r$time,2))# total time of the recording after the resume of the regular echolocation clicks 
+d3<-data.frame(`Narwhal ID`=sample_n$whale,samples=sample_n$n_samples)# number of samples
+
+data_s_y_f<-originaldata%>%
+  group_by(Narwhal.ID=whale)%>%
+  summarise(sex=unique(sex),year=unique(year),`acoustic sample rate (Hz)`=unique(frequency))
+
+
+d<-full_join(d0,d1)
+d<-full_join(d,d2)
+d<-full_join(d,d3)
+d<-full_join(d,data_s_y_f)
+
+d[,c("Narwhal.ID", "sex", "year", "time", "tf", "ta", "samples", "acoustic sample rate (Hz)")]
+```
+
+# References
+
