@@ -175,6 +175,7 @@ ggplot(data=datat,aes(x=value,y=pclick,color=whale,fill=whale))+geom_line(size=1
         legend.text= element_text(size=19),
         plot.title = element_text(size=20),
         strip.text.x = element_text(size = 21))
+
 ```
 
 
@@ -207,6 +208,9 @@ p2<-ggplot(data=subset(datat,variable1=="Depth (m)"),aes(x=value,y=pclick,color=
         strip.text.x = element_text(size = 21))+ylim(2,12)
 
 ggpubr::ggarrange(p2,p1,ncol=2,common.legend = T,widths = c(0.5,0.4), legend = "right")
+
+
+ggsave("Figures/Figure5.jpeg",dpi=600)
 ```
 
 ### Predicting number of clicks for the clicking periods from the original dataset
@@ -257,6 +261,9 @@ space="Lab",
         legend.text= element_text(size=17),
         plot.title = element_text(size=20),
         strip.text.x = element_text(size = 21))
+
+
+ggsave("Figures/Figure6.jpeg",dpi=600)
 ```
 
 
