@@ -63,7 +63,7 @@ sampledata <- data.table::fread("sampledata.txt", sep=" ")
 # Data processing
 
 ```{r}
-originaldata <- originaldata[-which(originaldata$Date.time == ""), ]#remove unknown time values
+originaldata <- originaldata[!(originaldata$Date.time == ""), ]#remove unknown time values
 originaldata$whale<-ifelse(originaldata$whale=="Mara","Mára",originaldata$whale)# put the correct name for Mára
 sampledata$whale<-ifelse(sampledata$whale=="Mara","Mára",sampledata$whale)# put the correct name for Mára
 
